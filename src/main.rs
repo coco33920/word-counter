@@ -10,6 +10,7 @@ use poise::{
 struct Data;
 
 mod commands;
+mod utils;
 
 #[tokio::main]
 async fn main() {
