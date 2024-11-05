@@ -30,16 +30,19 @@ pub async fn count_user_words(
     ctx: Context<'_, Data, Error>,
     #[description = "selected user"] user: Option<User>,
 ) -> Result<(), Error> {
+    println!("Ok we're thinking");
+    ctx.defer().await?;
     let u = user.as_ref().unwrap_or_else(|| ctx.author());
     let channels = ctx.guild_id().unwrap().channels(ctx.http()).await?;
     let ignored_channels = vec!["".to_string()];
     let mut total_words = 0;
     let mut total_messages = Vec::new();
+    println!("Got the channels..");
     for (id, channel) in channels {
+        println!("Channel {}", id.to_string());
         if ignored_channels.contains(&id.to_string()) {
             continue;
         }
-
         let message = channel
             .messages(ctx.http(), GetMessages::new().limit(1))
             .await?;
@@ -48,10 +51,34 @@ pub async fn count_user_words(
         } else {
             None
         };
-        while let Some(message) = co {
-            let messages = channel
+        let mut last_id = "".to_string();
+        while let Some(ref message) = co {
+            println!(
+                "Block of 100 message {} so far {} last id",
+                &total_messages.len(),
+                &message.id
+            );
+            let messages_raw = channel
                 .messages(ctx.http(), GetMessages::new().before(message.id).limit(100))
-                .await?;
+                .await;
+
+            let messages = match messages_raw {
+                Err(e) => {
+                    println!("{:#?}", e);
+                    println!("{:#?}", message);
+                    if last_id != message.id.to_string() {
+                        last_id = message.id.to_string();
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+                Ok(e) => e,
+            };
+
+            last_id = message.id.to_string();
+
+            println!("Ok that was {} messages", &messages.len());
 
             let slice = messages.clone().leak();
 
@@ -68,9 +95,11 @@ pub async fn count_user_words(
             }
         }
     }
+    println!("Finished!");
     total_messages
         .into_iter()
         .for_each(|f| total_words += utils::count_words(f.clone().content));
+    //.for_each(|f| println!("Message : {:#?}", f));
 
     ctx.say(format!(
         "{} wrote {} words since they arrived",
