@@ -5,6 +5,6 @@ release:
 run:
 	cargo run
 watch:
-	cargo watch -x check -x "fmt -- --force" -x run
+	cargo watch -x check -x fmt -x run
 test:
 	cargo test
