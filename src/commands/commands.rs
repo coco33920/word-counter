@@ -1,4 +1,8 @@
-use poise::{samples::HelpConfiguration, serenity_prelude::{Error, GetMessages, Message, User}, Context};
+use poise::{
+    samples::HelpConfiguration,
+    serenity_prelude::{Error, GetMessages, User},
+    Context,
+};
 
 use crate::{utils::utils, Data};
 
@@ -21,32 +25,57 @@ pub async fn help(
     Ok(())
 }
 
-#[poise::command(prefix_command,slash_command)]
+#[poise::command(prefix_command, slash_command)]
 pub async fn count_user_words(
     ctx: Context<'_, Data, Error>,
-    #[description = "selected user"] user: Option<User>
+    #[description = "selected user"] user: Option<User>,
 ) -> Result<(), Error> {
     let u = user.as_ref().unwrap_or_else(|| ctx.author());
-    let channels = ctx.guild().unwrap().channels(ctx.http()).await?;
+    let channels = ctx.guild_id().unwrap().channels(ctx.http()).await?;
     let ignored_channels = vec!["".to_string()];
     let mut total_words = 0;
     let mut total_messages = Vec::new();
-    for (id,channel) in channels {
+    for (id, channel) in channels {
         if ignored_channels.contains(&id.to_string()) {
             continue;
         }
-    
-        let message = channel.messages(ctx.http(), GetMessages::new().limit(1)).await?;
-        let mut co = if message.len() == 1 {Some(message.get(0).unwrap())} else {None};
-        
-        while let Some(message) = co  {
-            let messages = channel.messages(ctx.http(), GetMessages::new().before(message.id).limit(100)).await?;
-            messages.clone().iter().for_each(|x: &Message| {if u.id == x.author.id {total_messages.push(x)}});
-            co = if messages.clone().len() > 0 {Some(messages.clone().get(messages.clone().len() - 1).unwrap())} else {None}
+
+        let message = channel
+            .messages(ctx.http(), GetMessages::new().limit(1))
+            .await?;
+        let mut co = if message.len() == 1 {
+            Some(message.get(0).unwrap().clone())
+        } else {
+            None
+        };
+        while let Some(message) = co {
+            let messages = channel
+                .messages(ctx.http(), GetMessages::new().before(message.id).limit(100))
+                .await?;
+
+            let slice = messages.clone().leak();
+
+            for ele in slice {
+                if u.id == ele.author.id {
+                    total_messages.push(ele);
+                }
+            }
+
+            if messages.len() > 0 {
+                co = Some(messages.get(messages.len() - 1).unwrap().clone());
+            } else {
+                co = None;
+            }
         }
     }
-    total_messages.clone().into_iter().for_each(|f| {total_words += utils::count_words(f.clone().content)});
+    total_messages
+        .into_iter()
+        .for_each(|f| total_words += utils::count_words(f.clone().content));
 
-    ctx.say(format!("{} wrote {} words since they arrived",u.name,total_words)).await?;
+    ctx.say(format!(
+        "{} wrote {} words since they arrived",
+        u.name, total_words
+    ))
+    .await?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 use std::env;
 
-use commands::commands::help;
+use commands::commands::{count_user_words, help};
 use dotenv::dotenv;
 use poise::{
     serenity_prelude::{ClientBuilder, GatewayIntents},
@@ -20,7 +20,7 @@ async fn main() {
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
-            commands: vec![help()],
+            commands: vec![help(), count_user_words()],
             prefix_options: PrefixFrameworkOptions {
                 prefix: Some("~".into()),
                 ..Default::default()
